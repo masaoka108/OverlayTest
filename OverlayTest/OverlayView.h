@@ -12,7 +12,7 @@
 #import <OpenGLES/ES2/glext.h>
 
 
-@interface OverlayView : UIView <AVPlayerItemOutputPullDelegate>
+@interface OverlayView : UIView <AVPlayerItemOutputPullDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate, UIPopoverControllerDelegate>
 
 @property GLfloat preferredRotation;
 @property CGSize presentationRect;

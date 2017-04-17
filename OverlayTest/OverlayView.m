@@ -8,6 +8,8 @@
 
 #import "OverlayView.h"
 
+# define ONE_FRAME_DURATION 0.03
+
 // Uniform index.
 enum
 {
@@ -125,6 +127,79 @@ static const GLfloat kColorConversion709[] = {
     self.videoOutput = [[AVPlayerItemVideoOutput alloc] initWithPixelBufferAttributes:pixBuffAttributes];
     _myVideoOutputQueue = dispatch_queue_create("myVideoOutputQueue", DISPATCH_QUEUE_SERIAL);
     [[self videoOutput] setDelegate:self queue:_myVideoOutputQueue];
+    
+    
+
+    
+    
+    
+    if ([_player currentItem] == nil) {
+//        [[self lumaLevelSlider] setEnabled:YES];
+//        [[self chromaLevelSlider] setEnabled:YES];
+        [[self playerView] setupGL];
+    }
+    
+    // Time label shows the current time of the item.
+    if (self.timeView.hidden) {
+        [self.timeView.layer setBackgroundColor:[UIColor colorWithWhite:0.0 alpha:0.3].CGColor];
+        [self.timeView.layer setCornerRadius:5.0f];
+        [self.timeView.layer setBorderColor:[UIColor colorWithWhite:1.0 alpha:0.15].CGColor];
+        [self.timeView.layer setBorderWidth:1.0f];
+        self.timeView.hidden = NO;
+        self.currentTime.hidden = NO;
+    }
+    
+//    [self setupPlaybackForURL:info[UIImagePickerControllerReferenceURL]];
+    
+    //picker.delegate = nil;
+
+    
+    
+    
+    NSURL *URL = [NSURL URLWithString:@"http://zine.hiliberate.biz/movie/lowvision.mp4"];
+    
+    // Remove video output from old item, if any.
+    [[_player currentItem] removeOutput:self.videoOutput];
+    
+    AVPlayerItem *item = [AVPlayerItem playerItemWithURL:URL];
+    AVAsset *asset = [item asset];
+    
+    [asset loadValuesAsynchronouslyForKeys:@[@"tracks"] completionHandler:^{
+        
+        if ([asset statusOfValueForKey:@"tracks" error:nil] == AVKeyValueStatusLoaded) {
+            NSArray *tracks = [asset tracksWithMediaType:AVMediaTypeVideo];
+            if ([tracks count] > 0) {
+                // Choose the first video track.
+                AVAssetTrack *videoTrack = [tracks objectAtIndex:0];
+                [videoTrack loadValuesAsynchronouslyForKeys:@[@"preferredTransform"] completionHandler:^{
+                    
+                    if ([videoTrack statusOfValueForKey:@"preferredTransform" error:nil] == AVKeyValueStatusLoaded) {
+                        CGAffineTransform preferredTransform = [videoTrack preferredTransform];
+                        
+                        /*
+                         The orientation of the camera while recording affects the orientation of the images received from an AVPlayerItemVideoOutput. Here we compute a rotation that is used to correctly orientate the video.
+                         */
+                        self.playerView.preferredRotation = -1 * atan2(preferredTransform.b, preferredTransform.a);
+                        
+                        [self addDidPlayToEndTimeNotificationForPlayerItem:item];
+                        
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            [item addOutput:self.videoOutput];
+                            [_player replaceCurrentItemWithPlayerItem:item];
+                            [self.videoOutput requestNotificationOfMediaDataChangeWithAdvanceInterval:ONE_FRAME_DURATION];
+                            [_player play];
+                        });
+                        
+                    }
+                    
+                }];
+            }
+        }
+        
+    }];
+    
+
+    
     
     
     return self;
@@ -564,5 +639,19 @@ static const GLfloat kColorConversion709[] = {
     return YES;
 }
 
+- (void)addDidPlayToEndTimeNotificationForPlayerItem:(AVPlayerItem *)item
+{
+    if (_notificationToken)
+        _notificationToken = nil;
+    
+    /*
+     Setting actionAtItemEnd to None prevents the movie from getting paused at item end. A very simplistic, and not gapless, looped playback.
+     */
+    _player.actionAtItemEnd = AVPlayerActionAtItemEndNone;
+    _notificationToken = [[NSNotificationCenter defaultCenter] addObserverForName:AVPlayerItemDidPlayToEndTimeNotification object:item queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
+        // Simple item playback rewind.
+        [[_player currentItem] seekToTime:kCMTimeZero];
+    }];
+}
 
 @end

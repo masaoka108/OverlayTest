@@ -29,6 +29,7 @@
                 </imageView>
             </subviews>
             <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
+            <rect key="contentStretch" x="1" y="1" width="1" height="1"/>
             <point key="canvasLocation" x="34.5" y="85.5"/>
         </view>
     </objects>
